@@ -29,19 +29,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 接管 Ctrl+点击 / Ctrl+B：当光标处引用被解析到 jar（编译产物）里的类或成员时，
- * 改用全限定名在当前工程的源码里找同名类，把跳转目标换成源码里的成员。
+ * Takes over Ctrl+Click / Ctrl+B. When the reference at the caret resolves into a class or
+ * member from a jar (compiled artifact), look up a class with the same fully qualified name
+ * among the project sources and redirect the navigation target to the source member.
  * <p>
- * 找不到源码、或本来就指向源码时返回 {@code null}，完全交还给平台默认逻辑。
+ * Returns {@code null} when no source exists, or when the target already points at source,
+ * leaving the behavior entirely to the platform default.
  */
 public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
 
     private static final Logger LOG = Logger.getInstance(WorkspaceSourceRedirectHandler.class);
 
-    /** 向上追溯引用元素的最大层数，防止在异常语法树下无限爬 */
+    /** Maximum number of ancestor levels to walk up, to avoid looping on a malformed syntax tree. */
     private static final int MAX_ANCESTOR_DEPTH = 15;
 
-    /** 泛型类型参数在签名比对时的占位符 */
+    /** Placeholder used for generic type parameters during signature comparison. */
     private static final String TYPE_VARIABLE_PLACEHOLDER = "T";
 
     @Override
@@ -69,13 +71,14 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
                 return new PsiElement[]{target};
             });
         } catch (IndexNotReadyException e) {
-            // 索引没建好，不接管，让平台按默认方式处理
+            // Index is not ready yet, do not take over and let the platform handle it by default.
             return null;
         }
     }
 
     /**
-     * 从光标所在的叶子节点向上找，直到找到第一个能解析成 jar 里成员的引用。
+     * Walks up from the leaf element at the caret until it finds the first reference that
+     * resolves to a member coming from a jar.
      */
     @Nullable
     private PsiElement findLibraryMemberReference(PsiElement leafElement) {
@@ -91,7 +94,8 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * 先看元素自身的引用，再看它携带的引用（PSI 里同一位置可能有多个引用链）。
+     * Checks the element's own reference first, then the references it carries
+     * (PSI may expose several reference chains at the same position).
      */
     @Nullable
     private PsiElement resolveLibraryMember(PsiElement element) {
@@ -114,7 +118,8 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * 只认来自编译产物（PsiCompiledFile，即 jar / class 目录）的类、方法、字段。
+     * Accepts only classes, methods and fields that come from compiled output
+     * (PsiCompiledFile, i.e. a jar or a class directory).
      */
     @Nullable
     private PsiElement asLibraryMember(@Nullable PsiElement resolved) {
@@ -153,7 +158,8 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * 在当前工程 scope 里按全限定名找源码类；找到的还得不是编译产物。
+     * Looks up a source class by fully qualified name in the current project scope;
+     * the result must not itself be a compiled artifact.
      */
     @Nullable
     private PsiClass findInProjectSource(Project project, String qualifiedName) {
@@ -168,7 +174,8 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * 把 jar 里的成员映射到源码类里的对应成员；映射不到就退回跳类。
+     * Maps a member from the jar onto the corresponding member of the source class;
+     * falls back to navigating to the class when no mapping is possible.
      */
     private PsiElement mapMemberToWorkspace(PsiElement member, PsiClass workspaceClass) {
         if (member instanceof PsiMethod) {
@@ -183,7 +190,8 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * 按"擦除后的参数类型简单名"匹配方法；有多个重载都命中时放弃，退回跳类。
+     * Matches a method by the simple names of its erased parameter types; when several
+     * overloads match, gives up and falls back to navigating to the class.
      */
     @Nullable
     private PsiMethod matchMethod(PsiMethod libraryMethod, PsiClass workspaceClass) {
@@ -214,7 +222,8 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * 类型擦除成用于比对的简单形式：泛型参数统一记作 T，数组/可变参数按 [] 累加，丢掉泛型实参。
+     * Reduces a type to the simple form used for comparison: generic type parameters become T,
+     * arrays and varargs accumulate [], and type arguments are dropped.
      */
     private String erasedName(PsiType type) {
         String arraySuffix = "";
@@ -250,10 +259,11 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
         String targetPath = targetFile == null || targetFile.getVirtualFile() == null
                 ? "?" : targetFile.getVirtualFile().getPath();
         String memberName = target instanceof PsiMember ? ((PsiMember) target).getName() : String.valueOf(target);
-        String scope = targetProject.equals(currentProject.getName()) ? "同项目" : "跨项目";
+        String scope = targetProject.equals(currentProject.getName()) ? "same project" : "cross project";
         LOG.info("Workspace Source Redirector: " + qualifiedName + " -> " + memberName
                 + " @ " + targetProject + ":" + targetPath);
-        LOG.info("Workspace Source Redirector: 已接管跳转,类 " + qualifiedName + ",成员 " + memberName
-                + ",目标项目 " + targetProject + "(" + scope + "),文件 " + targetPath);
+        LOG.info("Workspace Source Redirector: navigation taken over, class " + qualifiedName
+                + ", member " + memberName + ", target project " + targetProject
+                + " (" + scope + "), file " + targetPath);
     }
 }

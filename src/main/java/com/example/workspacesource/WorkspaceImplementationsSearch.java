@@ -32,11 +32,15 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 补全"跳到实现"（Ctrl+Alt+B / Ctrl+Alt+点击 / 行号栏图标 / Ctrl+悬停）。
+ * Complements Go to Implementation (Ctrl+Alt+B / Ctrl+Alt+Click / gutter icon / Ctrl+hover).
  * <p>
- * 平台默认只在当前工程 scope 里找实现；这里先把所有同名类（含其它 module 的源码）当成搜索根，
- * 各自在自己的 project scope 里重跑一次实现搜索，把平台漏掉的实现补上。
- * 原生结果照旧保留，只是做了去重，不会改变原有行为。
+ * By default the platform only searches for implementations within the current project scope.
+ * Here every class with the same name (including sources from other modules) is used as a
+ * search root, and the implementation search is re-run inside each root's own project scope so
+ * that implementations missed by the platform are added.
+ * <p>
+ * Native results are kept as they are; duplicates are simply filtered out, so the original
+ * behavior is never altered.
  */
 public class WorkspaceImplementationsSearch implements QueryExecutor<PsiElement, DefinitionsScopedSearch.SearchParameters> {
 
@@ -91,7 +95,8 @@ public class WorkspaceImplementationsSearch implements QueryExecutor<PsiElement,
     }
 
     /**
-     * 先跑一遍平台原生搜索，结果用来去重——原生已经给出的不再重复上报。
+     * Runs the platform's native search first; its results are used for de-duplication, so
+     * anything the platform already reported is not reported again.
      */
     private Set<PsiElement> collectNativeTargets(PsiElement anchor, SearchScope nativeScope) {
         Set<PsiElement> targets = new HashSet<PsiElement>();
@@ -127,8 +132,9 @@ public class WorkspaceImplementationsSearch implements QueryExecutor<PsiElement,
     }
 
     /**
-     * 收集所有同名类作为搜索根：先取 allScope 里的（可能是 jar、也可能是别的 module），
-     * 再补上锚点自己所在的类，避免它没被 allScope 命中时漏掉。
+     * Collects every class with the same name as a search root: first the ones visible in
+     * allScope (which may be jars or classes from other modules), then the anchor's own class,
+     * so it is not missed when allScope does not return it.
      */
     private List<PsiClass> collectSearchRoots(Project project, PsiElement anchor, String qualifiedName) {
         List<PsiClass> roots = new ArrayList<PsiClass>();
@@ -215,7 +221,8 @@ public class WorkspaceImplementationsSearch implements QueryExecutor<PsiElement,
         String memberName = target instanceof PsiMember ? ((PsiMember) target).getName() : String.valueOf(target);
         LOG.debug("Workspace Source Redirector: " + qualifiedName + " -> " + memberName
                 + " @ " + project.getName() + ":" + targetPath);
-        LOG.info("Workspace Source Redirector: 已接管跳转(实现),类 " + qualifiedName + ",成员 " + memberName
-                + ",目标项目 " + project.getName() + ",文件 " + targetPath);
+        LOG.info("Workspace Source Redirector: navigation taken over (implementation), class "
+                + qualifiedName + ", member " + memberName + ", target project " + project.getName()
+                + ", file " + targetPath);
     }
 }

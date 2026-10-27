@@ -1,4 +1,4 @@
-# ---------- 构建产物 ----------
+# ---------- Build output ----------
 build/
 out/
 .gradle/
@@ -12,15 +12,15 @@ out/
 *.iws
 .DS_Store
 
-# ---------- 签名与密钥（绝对不要提交） ----------
+# ---------- Signing keys and certificates (never commit) ----------
 *.pem
 *.crt
 *.jks
 *.keystore
 
-# ---------- 本地配置 ----------
+# ---------- Local configuration ----------
 local.properties
 .pw-profile/
 
-# ---------- 保留 Gradle Wrapper ----------
+# ---------- Keep the Gradle wrapper ----------
 !gradle/wrapper/gradle-wrapper.jar
