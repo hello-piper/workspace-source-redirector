@@ -1,9 +1,9 @@
 <idea-plugin>
   <idea-version since-build="231" />
-  <id>com.example.workspacesource</id>
+  <id>piper</id>
   <name>Workspace Source Redirector</name>
   <version>1.1.0</version>
-  <vendor>wangzq</vendor>
+  <vendor>piper</vendor>
   <description><![CDATA[Redirects Java go-to-declaration (Ctrl+Click / Ctrl+B) and go-to-implementation (Ctrl+Alt+B) to the matching project sources inside the same workspace instead of decompiled jars.<br/>
     解决 IDEA 同工作区多 Java 项目互引时,Ctrl+点击 / Ctrl+B 总是跳到本地仓库 jar(或反编译类)的问题。<br/>
     只要工作区里有同名类的项目源码,就按类的全限定名重定向到项目源码,不要求依赖版本与源码一致。]]></description>

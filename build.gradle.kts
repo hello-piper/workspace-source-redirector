@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
-group = "com.example.workspacesource"
+group = "piper"
 version = "1.1.0"
 
 // 目标平台：IDEA 2023.1（build 231）。对着它编译，API 是否存在于 2023.1 由编译器兜底，
@@ -58,8 +58,6 @@ intellijPlatform {
         ides {
             local(file(localIdePath))
         }
-        // com.example 前缀只是上传 Marketplace 的限制，本地自用无碍，校验时静音
-        freeArgs = listOf("-mute", "ForbiddenPluginIdPrefix")
     }
 
     // 发布到 JetBrains Marketplace：./gradlew publishPlugin
