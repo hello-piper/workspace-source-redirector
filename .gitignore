@@ -1,0 +1,26 @@
+# ---------- 构建产物 ----------
+build/
+out/
+.gradle/
+.intellijPlatform/
+*.class
+
+# ---------- IDE ----------
+.idea/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+
+# ---------- 签名与密钥（绝对不要提交） ----------
+*.pem
+*.crt
+*.jks
+*.keystore
+
+# ---------- 本地配置 ----------
+local.properties
+.pw-profile/
+
+# ---------- 保留 Gradle Wrapper ----------
+!gradle/wrapper/gradle-wrapper.jar

@@ -1,0 +1,30 @@
+<idea-plugin>
+  <idea-version since-build="231" />
+  <id>com.example.workspacesource</id>
+  <name>Workspace Source Redirector</name>
+  <version>1.1.0</version>
+  <vendor>wangzq</vendor>
+  <description><![CDATA[Redirects Java go-to-declaration (Ctrl+Click / Ctrl+B) and go-to-implementation (Ctrl+Alt+B) to the matching project sources inside the same workspace instead of decompiled jars.<br/>
+    解决 IDEA 同工作区多 Java 项目互引时,Ctrl+点击 / Ctrl+B 总是跳到本地仓库 jar(或反编译类)的问题。<br/>
+    只要工作区里有同名类的项目源码,就按类的全限定名重定向到项目源码,不要求依赖版本与源码一致。]]></description>
+
+  <change-notes><![CDATA[
+    <h3>1.1.0</h3>
+    <ul>
+      <li>Rebuilt with the IntelliJ Platform Gradle Plugin; bytecode now targets Java 8.</li>
+      <li>Compatible with IntelliJ IDEA 2023.1 (build 231) and later, with no upper version bound.</li>
+      <li>Core behavior unchanged: go-to-declaration and go-to-implementation redirect to workspace sources.</li>
+    </ul>
+  ]]></change-notes>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.java</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <!-- 该扩展点的结果优先于标准引用解析,因此能盖过"跳 jar"的默认行为 -->
+    <gotoDeclarationHandler implementation="com.example.workspacesource.WorkspaceSourceRedirectHandler" />
+    <!-- 该扩展点只被"跳到实现"使用(Ctrl+Alt+B / Ctrl+Alt+点击 / 行号栏图标 / Ctrl+悬停),
+         平台默认只在当前工程作用域里找实现,这里补其它打开工程的源码实现 -->
+    <definitionsScopedSearch implementation="com.example.workspacesource.WorkspaceImplementationsSearch" />
+  </extensions>
+</idea-plugin>
