@@ -6,32 +6,25 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.IndexNotReadyException;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.JavaPsiFacade;
-import com.intellij.psi.PsiArrayType;
 import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiClassType;
 import com.intellij.psi.PsiCompiledFile;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiEllipsisType;
 import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiJavaFile;
 import com.intellij.psi.PsiMember;
 import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiReference;
-import com.intellij.psi.PsiType;
-import com.intellij.psi.PsiTypeParameter;
-import com.intellij.psi.search.GlobalSearchScope;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Takes over Ctrl+Click / Ctrl+B. When the reference at the caret resolves into a class or
  * member from a jar (compiled artifact), look up a class with the same fully qualified name
- * among the project sources and redirect the navigation target to the source member.
+ * among the workspace sources and redirect the navigation target to the source member.
+ * <p>
+ * An extension point is the right tool here: results returned by a {@code gotoDeclarationHandler}
+ * take precedence over standard reference resolution, which is what makes it possible to override
+ * the default "jump into the jar" behavior without touching reference resolution itself.
  * <p>
  * Returns {@code null} when no source exists, or when the target already points at source,
  * leaving the behavior entirely to the platform default.
@@ -42,9 +35,6 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
 
     /** Maximum number of ancestor levels to walk up, to avoid looping on a malformed syntax tree. */
     private static final int MAX_ANCESTOR_DEPTH = 15;
-
-    /** Placeholder used for generic type parameters during signature comparison. */
-    private static final String TYPE_VARIABLE_PLACEHOLDER = "T";
 
     @Override
     @Nullable
@@ -62,7 +52,7 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
                 if (qualifiedName == null) {
                     return null;
                 }
-                PsiClass workspaceClass = findInProjectSource(elementAtCaret.getProject(), qualifiedName);
+                PsiClass workspaceClass = findSourceClass(elementAtCaret.getProject(), qualifiedName);
                 if (workspaceClass == null) {
                     return null;
                 }
@@ -158,112 +148,49 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
     }
 
     /**
-     * Looks up a source class by fully qualified name in the current project scope;
-     * the result must not itself be a compiled artifact.
+     * Looks up a source class by fully qualified name inside the window: the current project
+     * first, then the other projects of the same source tree. Compiled copies are rejected here,
+     * they are what the plugin exists to avoid.
      */
     @Nullable
-    private PsiClass findInProjectSource(Project project, String qualifiedName) {
-        if (project == null || project.isDisposed()) {
-            return null;
+    private PsiClass findSourceClass(@Nullable Project currentProject, String qualifiedName) {
+        for (Project project : WorkspaceProjects.inWorkspace(currentProject)) {
+            PsiClass candidate = WorkspaceSourceLocator.findSourceClass(project, qualifiedName);
+            if (candidate != null) {
+                return candidate;
+            }
         }
-        PsiClass candidate = JavaPsiFacade.getInstance(project).findClass(qualifiedName, GlobalSearchScope.projectScope(project));
-        if (candidate == null) {
-            return null;
-        }
-        return candidate.getContainingFile() instanceof PsiCompiledFile ? null : candidate;
+        return null;
     }
 
     /**
-     * Maps a member from the jar onto the corresponding member of the source class;
-     * falls back to navigating to the class when no mapping is possible.
+     * Maps a member from the jar onto the corresponding member of the source class: methods by
+     * erased signature, fields by name, and the class itself when no member matches — so the user
+     * always lands somewhere in source.
      */
     private PsiElement mapMemberToWorkspace(PsiElement member, PsiClass workspaceClass) {
         if (member instanceof PsiMethod) {
-            PsiMethod matched = matchMethod((PsiMethod) member, workspaceClass);
+            PsiMethod matched = WorkspaceSourceMatcher.matchMethod(workspaceClass, (PsiMethod) member);
             return matched != null ? matched : workspaceClass;
         }
         if (member instanceof PsiField) {
-            PsiField matched = workspaceClass.findFieldByName(((PsiField) member).getName(), false);
+            PsiField matched = WorkspaceSourceMatcher.matchField(workspaceClass, (PsiField) member);
             return matched != null ? matched : workspaceClass;
         }
         return workspaceClass;
     }
 
-    /**
-     * Matches a method by the simple names of its erased parameter types; when several
-     * overloads match, gives up and falls back to navigating to the class.
-     */
-    @Nullable
-    private PsiMethod matchMethod(PsiMethod libraryMethod, PsiClass workspaceClass) {
-        String name = libraryMethod.getName();
-        List<String> paramNames = erasedParamNames(libraryMethod);
-        PsiMethod[] candidates = libraryMethod.isConstructor()
-                ? workspaceClass.getConstructors()
-                : workspaceClass.findMethodsByName(name, false);
-        PsiMethod matched = null;
-        for (PsiMethod candidate : candidates) {
-            if (!paramNames.equals(erasedParamNames(candidate))) {
-                continue;
-            }
-            if (matched != null) {
-                return null;
-            }
-            matched = candidate;
-        }
-        return matched;
-    }
-
-    private List<String> erasedParamNames(PsiMethod method) {
-        List<String> names = new ArrayList<String>();
-        for (PsiParameter parameter : method.getParameterList().getParameters()) {
-            names.add(erasedName(parameter.getType()));
-        }
-        return names;
-    }
-
-    /**
-     * Reduces a type to the simple form used for comparison: generic type parameters become T,
-     * arrays and varargs accumulate [], and type arguments are dropped.
-     */
-    private String erasedName(PsiType type) {
-        String arraySuffix = "";
-        PsiType current = type;
-        if (current instanceof PsiEllipsisType) {
-            current = ((PsiEllipsisType) current).getComponentType();
-            arraySuffix = "[]";
-        }
-        while (current instanceof PsiArrayType) {
-            arraySuffix = arraySuffix + "[]";
-            current = ((PsiArrayType) current).getComponentType();
-        }
-        if (current instanceof PsiClassType) {
-            PsiClass resolved = ((PsiClassType) current).resolve();
-            if (resolved instanceof PsiTypeParameter) {
-                return TYPE_VARIABLE_PLACEHOLDER + arraySuffix;
-            }
-            String canonicalText = current.getCanonicalText(false);
-            int dot = canonicalText.lastIndexOf('.');
-            String simpleName = dot >= 0 ? canonicalText.substring(dot + 1) : canonicalText;
-            int genericStart = simpleName.indexOf('<');
-            if (genericStart >= 0) {
-                simpleName = simpleName.substring(0, genericStart);
-            }
-            return simpleName + arraySuffix;
-        }
-        return current.getCanonicalText(false) + arraySuffix;
-    }
-
-    private void logRedirect(Project currentProject, String qualifiedName, PsiElement target) {
+    private void logRedirect(@Nullable Project currentProject, String qualifiedName, PsiElement target) {
         PsiFile targetFile = target.getContainingFile();
         String targetProject = targetFile == null ? "?" : targetFile.getProject().getName();
         String targetPath = targetFile == null || targetFile.getVirtualFile() == null
                 ? "?" : targetFile.getVirtualFile().getPath();
         String memberName = target instanceof PsiMember ? ((PsiMember) target).getName() : String.valueOf(target);
-        String scope = targetProject.equals(currentProject.getName()) ? "same project" : "cross project";
-        LOG.info("Workspace Source Redirector: " + qualifiedName + " -> " + memberName
-                + " @ " + targetProject + ":" + targetPath);
-        LOG.info("Workspace Source Redirector: navigation taken over, class " + qualifiedName
-                + ", member " + memberName + ", target project " + targetProject
-                + " (" + scope + "), file " + targetPath);
+        String current = currentProject == null ? "?" : currentProject.getName();
+        String scope = targetProject.equals(current) ? "当前工程" : "工作区其他工程";
+        LOG.info("已接管声明跳转，类 " + qualifiedName + "，成员 " + memberName
+                + "，目标工程 " + targetProject + "（" + scope + "），文件 " + targetPath);
+        LOG.debug("declaration navigation taken over, class=" + qualifiedName + ", member=" + memberName
+                + ", project=" + targetProject + ", file=" + targetPath);
     }
 }

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "piper"
-version = "1.1.0"
+version = "1.2.0"
 
 // Target platform: IntelliJ IDEA 2023.1 (build 231). Compiling against it lets the compiler
 // prove that every API exists in 2023.1, so since-build=231 is a verified fact, not a guess.

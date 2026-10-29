@@ -2,12 +2,27 @@
   <idea-version since-build="231" />
   <id>piper</id>
   <name>Workspace Source Redirector</name>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
   <vendor>piper</vendor>
-  <description><![CDATA[Jumps to workspace sources instead of decompiled jars. Redirects Java go-to-declaration (Ctrl+Click / Ctrl+B) and go-to-implementation (Ctrl+Alt+B) to the matching project sources inside the same workspace.<br/>
+  <description><![CDATA[Jumps to workspace sources instead of decompiled jars. Redirects Java go-to-declaration (Ctrl+Click / Ctrl+B) and go-to-implementation (Ctrl+Alt+B / Ctrl+Alt+Click) to the matching project sources inside the same workspace.<br/>
     When several Java projects are open in one IDE window and project A depends on project B, Ctrl+Click on a class from B usually lands in the decompiled jar in the local repository. This plugin resolves the class by its fully qualified name against the workspace sources instead, regardless of whether the dependency version matches the source version.]]></description>
 
   <change-notes><![CDATA[
+    <h3>1.2.0</h3>
+    <ul>
+      <li>Go to Implementation now overrides the <code>GotoImplementation</code> action instead of
+        contributing to <code>definitionsScopedSearch</code>, so global inheritance searches are
+        left untouched.</li>
+      <li>Implementations are matched by FQCN plus erased method signature, so a call site
+        compiled against an older jar still navigates to the newer workspace implementation.</li>
+      <li>Fallback chain: source copies of the interface, then <code>XxxServiceImpl</code>, then a
+        word-in-text scan over workspace sources that does not rely on the inheritance index.</li>
+      <li>Search scope is the current project itself, which already covers all of its imported
+        modules; projects opened next to it are never searched.</li>
+      <li>Go to Declaration also looks for sources in the other workspace projects, not only in
+        the current one; a folder opened without any source root falls back to the file name
+        index so that source lookup still works.</li>
+    </ul>
     <h3>1.1.0</h3>
     <ul>
       <li>Rebuilt with the IntelliJ Platform Gradle Plugin; bytecode now targets Java 8.</li>
@@ -23,9 +38,20 @@
     <!-- Results of this extension point take precedence over standard reference resolution,
          so it can override the default jump-to-jar behavior. -->
     <gotoDeclarationHandler implementation="com.example.workspacesource.WorkspaceSourceRedirectHandler" />
-    <!-- Only used by Go to Implementation (Ctrl+Alt+B / Ctrl+Alt+Click / gutter icon / Ctrl+hover).
-         The platform searches the current project scope only; this adds implementations
-         coming from other open projects. -->
-    <definitionsScopedSearch implementation="com.example.workspacesource.WorkspaceImplementationsSearch" />
   </extensions>
+
+  <!-- Go to Implementation is taken over by replacing the platform action, not by extending
+       definitionsScopedSearch: that extension point changes inheritance search globally and its
+       results are additionally filtered by acceptImplementationForReference, which drops
+       implementations whose super method comes from a different jar version.
+       Registering the same id keeps the platform key bindings (Ctrl+Alt+B, Ctrl+Alt+Click) and
+       the menu placement; overrides="true" tells the platform this is a deliberate replacement. -->
+  <actions>
+    <action id="GotoImplementation"
+            class="com.example.workspacesource.WorkspaceGotoImplementationAction"
+            text="Implementation(s)"
+            description="Go to implementation(s) in workspace sources"
+            icon="AllIcons.Gutter.ImplementedMethod"
+            overrides="true" />
+  </actions>
 </idea-plugin>
