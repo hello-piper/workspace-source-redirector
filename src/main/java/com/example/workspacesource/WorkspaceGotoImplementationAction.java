@@ -39,7 +39,7 @@ import java.util.List;
  */
 public class WorkspaceGotoImplementationAction extends GotoImplementationAction {
 
-    private static final String CHOOSER_TITLE = "选择实现";
+    private static final String CHOOSER_TITLE = "Choose Implementation";
 
     /** Action id of the platform action this class replaces; also used to look up gutter icons. */
     private static final String ACTION_ID = "GotoImplementation";

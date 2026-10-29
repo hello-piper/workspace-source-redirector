@@ -187,9 +187,9 @@ public class WorkspaceSourceRedirectHandler implements GotoDeclarationHandler {
                 ? "?" : targetFile.getVirtualFile().getPath();
         String memberName = target instanceof PsiMember ? ((PsiMember) target).getName() : String.valueOf(target);
         String current = currentProject == null ? "?" : currentProject.getName();
-        String scope = targetProject.equals(current) ? "当前工程" : "工作区其他工程";
-        LOG.info("已接管声明跳转，类 " + qualifiedName + "，成员 " + memberName
-                + "，目标工程 " + targetProject + "（" + scope + "），文件 " + targetPath);
+        String scope = targetProject.equals(current) ? "current project" : "another workspace project";
+        LOG.info("Go to Declaration taken over, class " + qualifiedName + ", member " + memberName
+                + ", project " + targetProject + " (" + scope + "), file " + targetPath);
         LOG.debug("declaration navigation taken over, class=" + qualifiedName + ", member=" + memberName
                 + ", project=" + targetProject + ", file=" + targetPath);
     }

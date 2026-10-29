@@ -75,7 +75,7 @@ final class WorkspaceImplementationFinder {
             return results;
         }
 
-        LOG.info("开始处理跳转(实现)，已解析锚点: " + describe(declaration) + "，FQCN: " + qualifiedName);
+        LOG.info("Go to Implementation, anchor " + describe(declaration) + ", FQCN " + qualifiedName);
         LOG.debug("go-to-implementation started, anchor=" + describe(declaration)
                 + ", fqcn=" + qualifiedName + ", scope=[" + projectNames(projects) + "]");
 
@@ -84,24 +84,24 @@ final class WorkspaceImplementationFinder {
         // Step 1: every source copy of the interface, each searched inside its own project.
         for (Project project : projects) {
             List<PsiClass> copies = WorkspaceSourceLocator.findSourceClasses(project, qualifiedName);
-            LOG.info("找到同名接口副本 " + copies.size() + " 个，工程: " + project.getName());
+            LOG.info("Found " + copies.size() + " source copy(ies) of the interface in project " + project.getName());
             LOG.debug("found " + copies.size() + " interface copies in project " + project.getName());
             for (PsiClass copy : copies) {
-                LOG.info("尝试接口副本: " + copy.getQualifiedName() + " @ " + filePath(copy));
+                LOG.info("Trying interface copy " + copy.getQualifiedName() + " @ " + filePath(copy));
                 collectFromCopy(copy, declaration, project, collected);
             }
         }
-        String strategy = "fqcn 副本";
+        String strategy = "FQCN copies";
 
         // Step 2: XxxService -> XxxServiceImpl.
         if (collected.isEmpty()) {
-            strategy = "命名约定";
+            strategy = "naming convention";
             collectByNamingConvention(declaration, qualifiedName, projects, collected);
         }
 
         // Step 3: word-in-text scan, independent of the inheritance index.
         if (collected.isEmpty() && declaration instanceof PsiMethod) {
-            strategy = "源码文本扫描";
+            strategy = "source text scan";
             collectByTextScan((PsiMethod) declaration, qualifiedName, projects, collected);
         }
 
@@ -156,8 +156,8 @@ final class WorkspaceImplementationFinder {
         for (Project project : projects) {
             for (PsiClass implClass : WorkspaceSourceLocator.findSourceClasses(project, implQualifiedName)) {
                 boolean inheritor = InheritanceUtil.isInheritor(implClass, true, qualifiedName);
-                LOG.info("按命名约定找到实现类: " + implQualifiedName + "，父类型校验: "
-                        + (inheritor ? "通过" : "未通过"));
+                LOG.info("Naming convention candidate " + implQualifiedName + ", super type check: "
+                        + (inheritor ? "passed" : "not resolved"));
                 LOG.debug("naming convention candidate " + implQualifiedName
                         + " inheritorOf(" + qualifiedName + ")=" + inheritor);
                 if (!(declaration instanceof PsiMethod)) {
@@ -188,7 +188,7 @@ final class WorkspaceImplementationFinder {
     private static void collectByTextScan(PsiMethod declaration, String qualifiedName,
                                           List<Project> projects, Set<PsiElement> collected) {
         String methodName = declaration.getName();
-        LOG.info("开始工作区源码兜底搜索，方法名: " + methodName);
+        LOG.info("Starting word-in-text fallback scan for method " + methodName);
         LOG.debug("starting word-in-text fallback scan for method " + methodName);
         for (Project project : projects) {
             GlobalSearchScope scope = WorkspaceProjects.sourceScope(project);
@@ -219,8 +219,8 @@ final class WorkspaceImplementationFinder {
                 && InheritanceUtil.isInheritor(candidate, true, qualifiedName)) {
             PsiMethod matched = WorkspaceSourceMatcher.matchMethod(candidate, declaration);
             if (matched != null) {
-                LOG.info("兜底候选实现类: " + candidate.getQualifiedName() + " @ " + filePath(candidate));
-                LOG.info("兜底命中实现方法: " + matched.getName() + " @ " + filePath(matched));
+                LOG.info("Fallback candidate class " + candidate.getQualifiedName() + " @ " + filePath(candidate));
+                LOG.info("Fallback matched method " + matched.getName() + " @ " + filePath(matched));
                 collected.add(matched);
             }
         }
@@ -278,8 +278,8 @@ final class WorkspaceImplementationFinder {
     private static void logResult(String qualifiedName, String strategy, List<Project> projects,
                                   List<PsiElement> results) {
         if (results.isEmpty()) {
-            LOG.info("工作区内没有 " + qualifiedName + " 的源码实现（已尝试: " + strategy
-                    + "），回退原生实现跳转");
+            LOG.info("No source implementation of " + qualifiedName + " in the workspace (tried: "
+                    + strategy + "), falling back to the native action");
             LOG.debug("no source implementation for " + qualifiedName + " in ["
                     + projectNames(projects) + "], native action is used");
             return;
@@ -292,7 +292,7 @@ final class WorkspaceImplementationFinder {
             targets.append(result instanceof PsiMember ? ((PsiMember) result).getName() : String.valueOf(result));
             targets.append(" @ ").append(filePath(result));
         }
-        LOG.info("实现目标文件 " + results.size() + " 个（命中方式: " + strategy + "）: " + targets);
+        LOG.info("Resolved " + results.size() + " implementation target(s) via " + strategy + ": " + targets);
         LOG.debug("resolved " + results.size() + " implementation(s) of " + qualifiedName
                 + " via " + strategy + " in [" + projectNames(projects) + "]: " + targets);
     }

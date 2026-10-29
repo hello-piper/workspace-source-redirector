@@ -2,12 +2,38 @@
   <idea-version since-build="231" />
   <id>piper</id>
   <name>Workspace Source Redirector</name>
-  <version>1.2.0</version>
+  <version>1.2.1</version>
   <vendor>piper</vendor>
-  <description><![CDATA[Jumps to workspace sources instead of decompiled jars. Redirects Java go-to-declaration (Ctrl+Click / Ctrl+B) and go-to-implementation (Ctrl+Alt+B / Ctrl+Alt+Click) to the matching project sources inside the same workspace.<br/>
-    When several Java projects are open in one IDE window and project A depends on project B, Ctrl+Click on a class from B usually lands in the decompiled jar in the local repository. This plugin resolves the class by its fully qualified name against the workspace sources instead, regardless of whether the dependency version matches the source version.]]></description>
+  <description><![CDATA[
+    <p><b>Jumps to workspace sources, not decompiled jars.</b>
+    A class that would open a sibling project's jar now opens the matching source, whatever
+    version the caller used.</p>
+
+    <h3>Shortcuts</h3>
+    <ul>
+      <li>Declaration: Ctrl+Click, Ctrl+B</li>
+      <li>Implementation: Ctrl+Alt+B, Ctrl+Alt+Click</li>
+    </ul>
+
+    <h3>Matching</h3>
+    <ul>
+      <li>Classes by fully qualified name, members by erased signature</li>
+      <li>No PSI inheritance, so jar and source versions may differ</li>
+      <li>Implementations: interface source, then <code>XxxServiceImpl</code>, then a text scan</li>
+    </ul>
+
+    <h3>Scope</h3>
+    <ul>
+      <li>Current project and nested projects; Java only</li>
+    </ul>
+  ]]></description>
 
   <change-notes><![CDATA[
+    <h3>1.2.1</h3>
+    <ul>
+      <li>Plugin description rewritten as a short, sectioned summary.</li>
+      <li>No behavioural change.</li>
+    </ul>
     <h3>1.2.0</h3>
     <ul>
       <li>Go to Implementation now overrides the <code>GotoImplementation</code> action instead of

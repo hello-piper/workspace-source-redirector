@@ -1,6 +1,6 @@
 # Workspace Source Redirector
 
-**English** | [简体中文](README.zh-CN.md)
+**English** | [Chinese](README.zh-CN.md)
 
 > An IntelliJ IDEA plugin that redirects **Go to Declaration** and **Go to Implementation** to the matching workspace source code instead of decompiled jars.
 
