@@ -1,0 +1,35 @@
+name: Build and attach release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # gradle.properties pins org.gradle.java.home to the local IDE's JBR;
+      # override it with the CI JDK so the build runs on a clean runner.
+      - name: Build plugin
+        run: ./gradlew buildPlugin -Dorg.gradle.java.home="$JAVA_HOME" --no-daemon
+
+      - name: Attach zip to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/distributions/*.zip
